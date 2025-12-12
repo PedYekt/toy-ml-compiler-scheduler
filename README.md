@@ -47,7 +47,3 @@ Running the same `Linear → GELU → Linear` subgraph under two SRAM sizes prod
 - A larger graph flips from `naive` (materialize to DRAM) to `memory_aware` (keep intermediates on‑chip) when SRAM increases.
 - Memory‑aware scheduling can **dramatically reduce DRAM traffic** when intermediates fit.
 - This toy pass illustrates the core idea of **hardware–software co‑design**: the same IR compiles differently under different hardware configs.
-
-## Next steps
-
-This is boilerplate scaffolding. The real pass logic, richer IR, and better cost models will be added.
