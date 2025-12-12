@@ -4,6 +4,7 @@ from mlcompiler import (
     Op,
     Tensor,
     choose_schedule,
+    run_schedule_pass,
     estimate_dram_bytes,
     estimate_peak_sram_bytes,
 )
@@ -65,3 +66,29 @@ def test_cost_model_naive_vs_memory_aware():
     peak_naive = estimate_peak_sram_bytes(g, NAIVE_SCHEDULE).peak_bytes
     peak_mem = estimate_peak_sram_bytes(g, MEMORY_AWARE_SCHEDULE).peak_bytes
     assert peak_naive <= peak_mem
+
+
+def test_run_schedule_pass_infeasible_reason():
+    g = Graph(
+        ops=[
+            Op(
+                name="Linear",
+                inputs=["x"],
+                outputs=["linear1"],
+                attrs={"in_features": 4, "out_features": 400},
+            ),
+            Op(name="GELU", inputs=["linear1"], outputs=["gelu"], attrs={}),
+            Op(
+                name="Linear",
+                inputs=["gelu"],
+                outputs=["linear2"],
+                attrs={"in_features": 400, "out_features": 2},
+            ),
+        ],
+        inputs={"x": Tensor((1, 4))},
+        outputs=["linear2"],
+    )
+    hw = HardwareConfig(sram_bytes=1024)
+    result = run_schedule_pass(g, hw)
+    assert result.chosen_schedule.name == "naive"
+    assert "memory_aware infeasible" in result.reason
