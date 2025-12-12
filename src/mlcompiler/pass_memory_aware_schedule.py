@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from .hardware import HardwareConfig
 from .ir import Graph
 from .schedule import MEMORY_AWARE_SCHEDULE, NAIVE_SCHEDULE, Schedule
+from .cost import evaluate_schedule
 
 
 @dataclass(frozen=True)
@@ -26,8 +27,11 @@ def estimate_intermediate_bytes(graph: Graph) -> int:
 
 def choose_schedule(graph: Graph, hw: HardwareConfig) -> ScheduleChoice:
     inter_bytes = estimate_intermediate_bytes(graph)
-    fits = inter_bytes <= hw.sram_bytes
-    schedule = MEMORY_AWARE_SCHEDULE if fits else NAIVE_SCHEDULE
+    naive_cost = evaluate_schedule(graph, NAIVE_SCHEDULE, hw)
+    mem_cost = evaluate_schedule(graph, MEMORY_AWARE_SCHEDULE, hw)
+    best = min([naive_cost, mem_cost], key=lambda c: c.penalized_cost)
+    fits = mem_cost.feasible
+    schedule = best.schedule
     return ScheduleChoice(
         schedule=schedule,
         fits_in_sram=fits,
