@@ -1,20 +1,20 @@
-from mlcompiler import Graph, HardwareConfig, Op, Tensor, choose_schedule
+from mlcompiler import Graph, HardwareConfig, Op, Tensor, run_schedule_pass
 
 
-def make_linear_gelu_linear(batch: int = 8, hidden: int = 1024, intermediate: int = 4096) -> Graph:
+def make_linear_gelu_linear(batch: int, hidden: int, ff: int) -> Graph:
     ops = [
         Op(
             name="Linear",
             inputs=["x"],
             outputs=["linear1"],
-            attrs={"in_features": hidden, "out_features": intermediate},
+            attrs={"in_features": hidden, "out_features": ff},
         ),
         Op(name="GELU", inputs=["linear1"], outputs=["gelu"], attrs={}),
         Op(
             name="Linear",
             inputs=["gelu"],
             outputs=["linear2"],
-            attrs={"in_features": intermediate, "out_features": hidden},
+            attrs={"in_features": ff, "out_features": hidden},
         ),
     ]
     inputs = {"x": Tensor((batch, hidden))}
@@ -22,13 +22,29 @@ def make_linear_gelu_linear(batch: int = 8, hidden: int = 1024, intermediate: in
 
 
 if __name__ == "__main__":
-    g = make_linear_gelu_linear()
-    tiny = HardwareConfig(sram_bytes=256 * 1024)
-    big = HardwareConfig(sram_bytes=8 * 1024 * 1024)
+    # Experiment 1: larger transformer MLP block
+    g = make_linear_gelu_linear(batch=32, hidden=4096, ff=16384)
 
-    for hw in (tiny, big):
-        choice = choose_schedule(g, hw)
-        print(
-            f"{hw.sram_bytes}B SRAM: {choice.schedule.name} "
-            f"(intermediates={choice.estimated_intermediate_bytes} bytes)"
-        )
+    hw_small = HardwareConfig(sram_bytes=1 * 1024 * 1024)  # 1MB
+    hw_large = HardwareConfig(sram_bytes=8 * 1024 * 1024)  # 8MB
+
+    for hw in (hw_small, hw_large):
+        result = run_schedule_pass(g, hw)
+        chosen = result.chosen_schedule.name
+        chosen_cost = result.costs[chosen]
+        print(f"\n=== Hardware SRAM={hw.sram_bytes} bytes ===")
+        print(f"chosen schedule: {chosen}")
+        print(f"dram bytes: {chosen_cost.dram.total_bytes} ({chosen_cost.dram.breakdown})")
+        print(f"peak sram bytes: {chosen_cost.sram.peak_bytes} ({chosen_cost.sram.breakdown})")
+        print(f"reason: {result.reason}")
+
+    # Experiment 2 (optional): smaller block that fits everywhere
+    g_small = make_linear_gelu_linear(batch=32, hidden=1024, ff=4096)
+    for hw in (hw_small, hw_large):
+        result = run_schedule_pass(g_small, hw)
+        chosen = result.chosen_schedule.name
+        chosen_cost = result.costs[chosen]
+        print(f"\n--- Small graph, SRAM={hw.sram_bytes} bytes ---")
+        print(f"chosen schedule: {chosen}")
+        print(f"dram bytes: {chosen_cost.dram.total_bytes}")
+        print(f"peak sram bytes: {chosen_cost.sram.peak_bytes}")
