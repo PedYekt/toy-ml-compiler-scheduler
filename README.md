@@ -31,7 +31,7 @@ Run the example:
 python examples/simple_transformer_subgraph.py
 ```
 
-## Results (Phase 6)
+## Results
 
 Running the same `Linear → GELU → Linear` subgraph under two SRAM sizes produces different schedules:
 
