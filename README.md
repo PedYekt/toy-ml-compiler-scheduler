@@ -31,6 +31,19 @@ Run the example:
 python examples/simple_transformer_subgraph.py
 ```
 
-## Next steps
+## Results (Phase 6)
 
-This is boilerplate scaffolding. The real pass logic, richer IR, and better cost models will be added.
+Running the same `Linear → GELU → Linear` subgraph under two SRAM sizes produces different schedules:
+
+| Graph shape (batch, hidden, ff) | SRAM = 1MB | DRAM bytes | Peak SRAM | SRAM = 8MB | DRAM bytes | Peak SRAM |
+|---|---:|---:|---:|---:|---:|---:|
+| (32, 1024, 4096) | memory_aware | 128KB | 512KB | memory_aware | 128KB | 512KB |
+| (32, 2048, 8192) | memory_aware | 256KB | 1MB | memory_aware | 256KB | 1MB |
+| (32, 4096, 16384) | naive | 4.5MB | 1MB | memory_aware | 512KB | 2MB |
+
+**What this demonstrates**
+
+- The compiler makes **hardware‑aware schedule decisions** based on SRAM capacity.
+- A larger graph flips from `naive` (materialize to DRAM) to `memory_aware` (keep intermediates on‑chip) when SRAM increases.
+- Memory‑aware scheduling can **dramatically reduce DRAM traffic** when intermediates fit.
+- This toy pass illustrates the core idea of **hardware–software co‑design**: the same IR compiles differently under different hardware configs.

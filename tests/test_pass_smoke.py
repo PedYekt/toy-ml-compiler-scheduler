@@ -1,17 +1,94 @@
-from mlcompiler import Graph, HardwareConfig, Node, OpKind, TensorType, choose_schedule
+from mlcompiler import (
+    Graph,
+    HardwareConfig,
+    Op,
+    Tensor,
+    choose_schedule,
+    run_schedule_pass,
+    estimate_dram_bytes,
+    estimate_peak_sram_bytes,
+)
 
 
 def test_choose_schedule_runs():
     g = Graph(
-        nodes=[
-            Node("linear1", OpKind.LINEAR, ["x"], TensorType((2, 4))),
-            Node("gelu", OpKind.GELU, ["linear1"], TensorType((2, 4))),
-            Node("linear2", OpKind.LINEAR, ["gelu"], TensorType((2, 2))),
+        ops=[
+            Op(
+                name="Linear",
+                inputs=["x"],
+                outputs=["linear1"],
+                attrs={"in_features": 4, "out_features": 4},
+            ),
+            Op(name="GELU", inputs=["linear1"], outputs=["gelu"], attrs={}),
+            Op(
+                name="Linear",
+                inputs=["gelu"],
+                outputs=["linear2"],
+                attrs={"in_features": 4, "out_features": 2},
+            ),
         ],
+        inputs={"x": Tensor((2, 4))},
         outputs=["linear2"],
-        inputs=["x"],
     )
-    hw = HardwareConfig(name="test", sram_bytes=1024)
+    tensors = g.infer_shapes()
+    assert tensors["linear2"].shape == (2, 2)
+    hw = HardwareConfig(sram_bytes=1024)
     choice = choose_schedule(g, hw)
-    assert choice.schedule.kind in {"fused", "naive"}
+    assert choice.schedule.name in {"memory_aware", "naive"}
 
+
+def test_cost_model_naive_vs_memory_aware():
+    g = Graph(
+        ops=[
+            Op(
+                name="Linear",
+                inputs=["x"],
+                outputs=["linear1"],
+                attrs={"in_features": 4, "out_features": 4},
+            ),
+            Op(name="GELU", inputs=["linear1"], outputs=["gelu"], attrs={}),
+            Op(
+                name="Linear",
+                inputs=["gelu"],
+                outputs=["linear2"],
+                attrs={"in_features": 4, "out_features": 2},
+            ),
+        ],
+        inputs={"x": Tensor((2, 4))},
+        outputs=["linear2"],
+    )
+    from mlcompiler.schedule import NAIVE_SCHEDULE, MEMORY_AWARE_SCHEDULE
+
+    dram_naive = estimate_dram_bytes(g, NAIVE_SCHEDULE).total_bytes
+    dram_mem = estimate_dram_bytes(g, MEMORY_AWARE_SCHEDULE).total_bytes
+    assert dram_mem < dram_naive
+
+    peak_naive = estimate_peak_sram_bytes(g, NAIVE_SCHEDULE).peak_bytes
+    peak_mem = estimate_peak_sram_bytes(g, MEMORY_AWARE_SCHEDULE).peak_bytes
+    assert peak_naive <= peak_mem
+
+
+def test_run_schedule_pass_infeasible_reason():
+    g = Graph(
+        ops=[
+            Op(
+                name="Linear",
+                inputs=["x"],
+                outputs=["linear1"],
+                attrs={"in_features": 4, "out_features": 400},
+            ),
+            Op(name="GELU", inputs=["linear1"], outputs=["gelu"], attrs={}),
+            Op(
+                name="Linear",
+                inputs=["gelu"],
+                outputs=["linear2"],
+                attrs={"in_features": 400, "out_features": 2},
+            ),
+        ],
+        inputs={"x": Tensor((1, 4))},
+        outputs=["linear2"],
+    )
+    hw = HardwareConfig(sram_bytes=1024)
+    result = run_schedule_pass(g, hw)
+    assert result.chosen_schedule.name == "naive"
+    assert "memory_aware infeasible" in result.reason

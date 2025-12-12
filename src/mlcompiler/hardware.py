@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass(frozen=True)
 class HardwareConfig:
-    name: str
     sram_bytes: int
-    dram_bandwidth_gbps: float = 200.0
-
+    dram_bandwidth_GBs: Optional[float] = None
+    compute_Gops: Optional[float] = None
