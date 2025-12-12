@@ -23,9 +23,9 @@ def make_linear_gelu_linear(batch: int = 8, hidden: int = 1024, intermediate: in
 
 if __name__ == "__main__":
     g = make_linear_gelu_linear()
-    tiny = HardwareConfig(name="tiny_sram", sram_bytes=256 * 1024)
-    big = HardwareConfig(name="big_sram", sram_bytes=8 * 1024 * 1024)
+    tiny = HardwareConfig(sram_bytes=256 * 1024)
+    big = HardwareConfig(sram_bytes=8 * 1024 * 1024)
 
     for hw in (tiny, big):
         choice = choose_schedule(g, hw)
-        print(f"{hw.name}: {choice.schedule.kind} (intermediates={choice.estimated_intermediate_bytes} bytes)")
+        print(f"{hw.sram_bytes}B SRAM: {choice.schedule.kind} (intermediates={choice.estimated_intermediate_bytes} bytes)")

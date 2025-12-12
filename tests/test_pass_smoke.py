@@ -23,6 +23,6 @@ def test_choose_schedule_runs():
     )
     tensors = g.infer_shapes()
     assert tensors["linear2"].shape == (2, 2)
-    hw = HardwareConfig(name="test", sram_bytes=1024)
+    hw = HardwareConfig(sram_bytes=1024)
     choice = choose_schedule(g, hw)
     assert choice.schedule.kind.value in {"fused", "naive"}
