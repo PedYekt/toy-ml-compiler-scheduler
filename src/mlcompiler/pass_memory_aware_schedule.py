@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
 from .hardware import HardwareConfig
 from .ir import Graph
-from .schedule import Schedule, ScheduleKind
+from .schedule import MEMORY_AWARE_SCHEDULE, NAIVE_SCHEDULE, Schedule
 
 
 @dataclass(frozen=True)
@@ -28,13 +27,7 @@ def estimate_intermediate_bytes(graph: Graph) -> int:
 def choose_schedule(graph: Graph, hw: HardwareConfig) -> ScheduleChoice:
     inter_bytes = estimate_intermediate_bytes(graph)
     fits = inter_bytes <= hw.sram_bytes
-    order: List[str] = []
-    for op in graph.walk_ops():
-        order.extend(op.outputs or [op.name])
-    if fits:
-        schedule = Schedule(kind=ScheduleKind.FUSED, order=order)
-    else:
-        schedule = Schedule(kind=ScheduleKind.NAIVE, order=order)
+    schedule = MEMORY_AWARE_SCHEDULE if fits else NAIVE_SCHEDULE
     return ScheduleChoice(
         schedule=schedule,
         fits_in_sram=fits,

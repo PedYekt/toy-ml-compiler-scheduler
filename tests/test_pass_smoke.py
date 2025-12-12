@@ -25,4 +25,4 @@ def test_choose_schedule_runs():
     assert tensors["linear2"].shape == (2, 2)
     hw = HardwareConfig(sram_bytes=1024)
     choice = choose_schedule(g, hw)
-    assert choice.schedule.kind.value in {"fused", "naive"}
+    assert choice.schedule.name in {"memory_aware", "naive"}

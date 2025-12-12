@@ -28,4 +28,7 @@ if __name__ == "__main__":
 
     for hw in (tiny, big):
         choice = choose_schedule(g, hw)
-        print(f"{hw.sram_bytes}B SRAM: {choice.schedule.kind} (intermediates={choice.estimated_intermediate_bytes} bytes)")
+        print(
+            f"{hw.sram_bytes}B SRAM: {choice.schedule.name} "
+            f"(intermediates={choice.estimated_intermediate_bytes} bytes)"
+        )
