@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import List
 from .hardware import HardwareConfig
 from .ir import Graph
 from .schedule import Schedule, ScheduleKind
@@ -14,22 +15,25 @@ class ScheduleChoice:
 
 
 def estimate_intermediate_bytes(graph: Graph) -> int:
+    tensors = graph.infer_shapes()
     total = 0
-    for node in graph.topo_order():
-        if node.name in graph.outputs:
-            continue
-        total += node.output.nbytes
+    for op in graph.walk_ops():
+        for out_name in op.outputs:
+            if out_name in graph.outputs:
+                continue
+            total += tensors[out_name].nbytes()
     return total
 
 
 def choose_schedule(graph: Graph, hw: HardwareConfig) -> ScheduleChoice:
     inter_bytes = estimate_intermediate_bytes(graph)
     fits = inter_bytes <= hw.sram_bytes
+    order: List[str] = []
+    for op in graph.walk_ops():
+        order.extend(op.outputs or [op.name])
     if fits:
-        order = [n.name for n in graph.topo_order()]
         schedule = Schedule(kind=ScheduleKind.FUSED, order=order)
     else:
-        order = [n.name for n in graph.topo_order()]
         schedule = Schedule(kind=ScheduleKind.NAIVE, order=order)
     return ScheduleChoice(
         schedule=schedule,

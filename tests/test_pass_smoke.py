@@ -1,17 +1,28 @@
-from mlcompiler import Graph, HardwareConfig, Node, OpKind, TensorType, choose_schedule
+from mlcompiler import Graph, HardwareConfig, Op, Tensor, choose_schedule
 
 
 def test_choose_schedule_runs():
     g = Graph(
-        nodes=[
-            Node("linear1", OpKind.LINEAR, ["x"], TensorType((2, 4))),
-            Node("gelu", OpKind.GELU, ["linear1"], TensorType((2, 4))),
-            Node("linear2", OpKind.LINEAR, ["gelu"], TensorType((2, 2))),
+        ops=[
+            Op(
+                name="Linear",
+                inputs=["x"],
+                outputs=["linear1"],
+                attrs={"in_features": 4, "out_features": 4},
+            ),
+            Op(name="GELU", inputs=["linear1"], outputs=["gelu"], attrs={}),
+            Op(
+                name="Linear",
+                inputs=["gelu"],
+                outputs=["linear2"],
+                attrs={"in_features": 4, "out_features": 2},
+            ),
         ],
+        inputs={"x": Tensor((2, 4))},
         outputs=["linear2"],
-        inputs=["x"],
     )
+    tensors = g.infer_shapes()
+    assert tensors["linear2"].shape == (2, 2)
     hw = HardwareConfig(name="test", sram_bytes=1024)
     choice = choose_schedule(g, hw)
-    assert choice.schedule.kind in {"fused", "naive"}
-
+    assert choice.schedule.kind.value in {"fused", "naive"}

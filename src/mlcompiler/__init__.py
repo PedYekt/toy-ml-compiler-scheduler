@@ -1,14 +1,12 @@
-from .ir import Graph, Node, OpKind, TensorType
+from .ir import Graph, Op, Tensor
 from .hardware import HardwareConfig
 from .pass_memory_aware_schedule import choose_schedule, ScheduleChoice
 
 __all__ = [
     "Graph",
-    "Node",
-    "OpKind",
-    "TensorType",
+    "Op",
+    "Tensor",
     "HardwareConfig",
     "choose_schedule",
     "ScheduleChoice",
 ]
-

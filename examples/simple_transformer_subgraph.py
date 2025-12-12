@@ -1,27 +1,24 @@
-from mlcompiler import Graph, HardwareConfig, Node, OpKind, TensorType, choose_schedule
+from mlcompiler import Graph, HardwareConfig, Op, Tensor, choose_schedule
 
 
 def make_linear_gelu_linear(batch: int = 8, hidden: int = 1024, intermediate: int = 4096) -> Graph:
-    x = "x"
-    n1 = Node(
-        name="linear1",
-        op=OpKind.LINEAR,
-        inputs=[x],
-        output=TensorType((batch, intermediate)),
-    )
-    n2 = Node(
-        name="gelu",
-        op=OpKind.GELU,
-        inputs=[n1.name],
-        output=TensorType((batch, intermediate)),
-    )
-    n3 = Node(
-        name="linear2",
-        op=OpKind.LINEAR,
-        inputs=[n2.name],
-        output=TensorType((batch, hidden)),
-    )
-    return Graph(nodes=[n1, n2, n3], outputs=[n3.name], inputs=[x])
+    ops = [
+        Op(
+            name="Linear",
+            inputs=["x"],
+            outputs=["linear1"],
+            attrs={"in_features": hidden, "out_features": intermediate},
+        ),
+        Op(name="GELU", inputs=["linear1"], outputs=["gelu"], attrs={}),
+        Op(
+            name="Linear",
+            inputs=["gelu"],
+            outputs=["linear2"],
+            attrs={"in_features": intermediate, "out_features": hidden},
+        ),
+    ]
+    inputs = {"x": Tensor((batch, hidden))}
+    return Graph(ops=ops, inputs=inputs, outputs=["linear2"])
 
 
 if __name__ == "__main__":
@@ -32,4 +29,3 @@ if __name__ == "__main__":
     for hw in (tiny, big):
         choice = choose_schedule(g, hw)
         print(f"{hw.name}: {choice.schedule.kind} (intermediates={choice.estimated_intermediate_bytes} bytes)")
-
